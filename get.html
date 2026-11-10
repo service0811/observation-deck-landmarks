@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>觀景台影像</title>
+<style>
+:root { --bg: #f3f5f7; --surface: #ffffff; --ink: #17202b; --muted: #5b6876; --line: #d9dfe5; --accent: #1f5f8b; --pin: #e53935; --err: #b3261e;
+  --font: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0d1318; --surface: #161e26; --ink: #e8edf2; --muted: #93a1ae; --line: #27323d; --accent: #7cb4dc; --pin: #f0544f; --err: #ff8a80; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); line-height: 1.55;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(30px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.langs { align-self: flex-end; display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.langs button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; font-size: 13px; min-width: 38px; height: 32px; padding: 0 8px; border-radius: 999px; cursor: pointer; }
+.langs button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+header { display: flex; align-items: center; gap: 12px; }
+.mark { width: 26px; height: 32px; position: relative; flex: none; }
+.mark::before { content: ""; position: absolute; left: 3px; top: 0; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--pin); }
+h1 { margin: 0; font-size: 20px; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 14px; }
+#list { display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.card .media { background: #000; display: flex; justify-content: center; min-height: 160px; align-items: center; }
+.card img, .card video { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; }
+.card .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; flex-wrap: wrap; }
+.card .foot span { color: var(--muted); font-size: 13.5px; }
+.btn { appearance: none; border: 0; background: var(--accent); color: var(--surface); font: inherit; font-weight: 600; font-size: 15px; padding: 10px 16px; border-radius: 10px; cursor: pointer; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.btn:focus-visible, .langs button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.hint { margin: 0; color: var(--muted); font-size: 13.5px; }
+.err { color: var(--err); padding: 16px; margin: 0; }
+.media .err { color: #ff9b95; }
+.spinner { width: 26px; height: 26px; border-radius: 50%; border: 3px solid #39444f; border-top-color: #9fc7e6; animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="langs" id="langs" role="group" aria-label="Language"></div>
+  <header><div class="mark" aria-hidden="true"></div><div><h1 data-t="title"></h1><p class="sub" data-t="sub"></p></div></header>
+  <div id="list"></div>
+  <p class="hint" data-t="hint"></p>
+</main>
+<script>
+"use strict";
+(() => {
+const T = {
+  zh: { html: "zh-Hant", font: '"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif', title: "觀景台影像", sub: "這是剛剛在觀景台拍下的畫面，可以存到你的手機。", video: "影片", photo: "照片", save: "儲存到手機", loading: "載入中",
+    hint: "iPhone：按「儲存到手機」後選擇「儲存影像」或「儲存影片」，也可以長按照片儲存。", bad: "這個連結不完整，請重新掃描觀景台螢幕上的 QR Code。",
+    fail: "{x}暫時無法載入。請稍等幾秒後重新整理頁面；如果還是不行，請重新掃描 QR Code。", file: "觀景台" },
+  en: { html: "en", font: 'system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif', title: "Your observation deck shots", sub: "Here are the photo and video you just took at the observation deck. Save them to your phone.", video: "Video", photo: "Photo", save: "Save to phone", loading: "Loading",
+    hint: "On iPhone, tap Save to phone, then choose Save Image or Save Video. You can also press and hold the photo.", bad: "This link is incomplete. Please scan the QR code on the observation deck screen again.",
+    fail: "The {x} couldn't load yet. Wait a few seconds and refresh. If it still fails, scan the QR code again.", file: "observation-deck" },
+  ja: { html: "ja", font: '"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic","Meiryo",system-ui,sans-serif', title: "展望台の写真と動画", sub: "展望台で撮ったばかりの映像です。スマホに保存できます。", video: "動画", photo: "写真", save: "スマホに保存", loading: "読み込み中",
+    hint: "iPhone の場合：「スマホに保存」を押して「画像を保存」または「ビデオを保存」を選びます。写真を長押しして保存することもできます。", bad: "リンクが不完全です。展望台の画面のQRコードをもう一度スキャンしてください。",
+    fail: "{x}を読み込めませんでした。数秒待ってから再読み込みしてください。それでも表示されない場合は、QRコードをもう一度スキャンしてください。", file: "展望台" },
+  ko: { html: "ko", font: '"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif', title: "전망대 사진과 영상", sub: "방금 전망대에서 찍은 영상입니다. 휴대폰에 저장할 수 있습니다.", video: "영상", photo: "사진", save: "휴대폰에 저장", loading: "불러오는 중",
+    hint: "iPhone: '휴대폰에 저장'을 누른 뒤 '이미지 저장' 또는 '비디오 저장'을 선택하세요. 사진을 길게 눌러 저장할 수도 있습니다.", bad: "링크가 완전하지 않습니다. 전망대 화면의 QR 코드를 다시 스캔하세요.",
+    fail: "{x}을(를) 아직 불러오지 못했습니다. 몇 초 후 새로고침하세요. 계속 안 되면 QR 코드를 다시 스캔하세요.", file: "전망대" }
+};
+const SHORT = { zh: "中", en: "EN", ja: "日", ko: "한" }, LABEL = { zh: "中文", en: "English", ja: "日本語", ko: "한국어" };
+const params = new URLSearchParams(location.search), keys = new URLSearchParams(location.hash.slice(1));
+const phone = (navigator.languages && navigator.languages[0] || navigator.language || "").slice(0, 2).toLowerCase();
+let lang = T[phone] ? phone : (T[params.get("l")] ? params.get("l") : "en");
+const t = (k, v) => { let s = T[lang][k]; if (v) for (const x in v) s = s.split("{" + x + "}").join(v[x]); return s; };
+const parts = location.pathname.split("/").filter(Boolean);
+const owner = location.hostname.split(".")[0], repo = params.get("r") || parts[0] || "observation-deck-landmarks";
+const RAW = `https://raw.githubusercontent.com/${owner}/${repo}/media/m/`;
+const list = document.getElementById("list");
+const b64 = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+const TYPES = { jpg: "image/jpeg", mp4: "video/mp4", webm: "video/webm" };
+const wanted = ["v", "p"].filter(k => params.get(k) && keys.get(k));
+const cards = [];
+
+function render() {
+  document.documentElement.lang = T[lang].html;
+  document.documentElement.style.setProperty("--font", T[lang].font);
+  document.title = t("title");
+  document.querySelectorAll("[data-t]").forEach(e => { e.textContent = t(e.dataset.t); });
+  document.querySelectorAll("#langs button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  if (!wanted.length) list.innerHTML = `<p class="err">${t("bad")}</p>`;
+  for (const c of cards) c.update();
+}
+for (const code of Object.keys(T)) {
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.lang = code; b.textContent = SHORT[code]; b.setAttribute("aria-label", LABEL[code]); b.lang = T[code].html;
+  b.onclick = () => { lang = code; render(); };
+  document.getElementById("langs").appendChild(b);
+}
+
+async function fetchRetry(url) {
+  for (let i = 0; i < 6; i++) {
+    try { const r = await fetch(url, { cache: "no-store" }); if (r.ok) return new Uint8Array(await r.arrayBuffer()); if (r.status !== 404) throw new Error(r.status); } catch (e) { if (i === 5) throw e; }
+    await new Promise(s => setTimeout(s, 1500 * (i + 1)));
+  }
+  throw new Error("not found");
+}
+for (const k of wanted) {
+  const kind = k === "v" ? "video" : "photo";
+  const name = params.get(k), ext = name.split(".").pop(), type = TYPES[ext] || "application/octet-stream";
+  const card = document.createElement("section"); card.className = "card";
+  card.innerHTML = `<div class="media"><div class="spinner"></div></div><div class="foot"><span></span></div>`;
+  list.appendChild(card);
+  const state = { status: "loading", url: null, file: null, btn: null };
+  const c = {
+    update() {
+      card.querySelector(".foot span").textContent = t(kind);
+      const sp = card.querySelector(".spinner"); if (sp) sp.setAttribute("aria-label", t("loading"));
+      if (state.status === "error") card.querySelector(".media").innerHTML = `<p class="err">${t("fail", { x: t(kind) })}</p>`;
+      if (state.btn) { state.btn.textContent = t("save"); if (state.btn.tagName === "A") state.btn.download = `${t("file")}_${name.split("/")[0]}.${ext}`; }
+      const img = card.querySelector("img"); if (img) img.alt = t("photo");
+    }
+  };
+  cards.push(c);
+  (async () => {
+    try {
+      const data = await fetchRetry(RAW + name.split("/").map(encodeURIComponent).join("/") + ".bin");
+      const key = await crypto.subtle.importKey("raw", b64(keys.get(k)), "AES-GCM", false, ["decrypt"]);
+      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: data.slice(0, 12) }, key, data.slice(12));
+      const blob = new Blob([plain], { type }), url = URL.createObjectURL(blob);
+      const media = card.querySelector(".media"); media.innerHTML = "";
+      const el = document.createElement(k === "v" ? "video" : "img");
+      if (k === "v") { el.controls = true; el.playsInline = true; el.setAttribute("playsinline", ""); el.muted = true; el.autoplay = true; el.loop = true; }
+      el.src = url; media.appendChild(el);
+      const file = new File([blob], `${t("file")}_${name.split("/")[0]}.${ext}`, { type });
+      const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+      const btn = document.createElement(canShare ? "button" : "a");
+      btn.className = "btn";
+      if (canShare) { btn.type = "button"; btn.onclick = () => navigator.share({ files: [file] }).catch(() => {}); }
+      else btn.href = url;
+      card.querySelector(".foot").appendChild(btn);
+      state.status = "ok"; state.btn = btn;
+    } catch (e) { state.status = "error"; }
+    c.update();
+  })();
+}
+render();
+})();
+</script>
+</body>
+</html>
